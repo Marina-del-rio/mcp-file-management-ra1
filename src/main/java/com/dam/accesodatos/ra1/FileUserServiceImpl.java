@@ -3,40 +3,28 @@ package com.dam.accesodatos.ra1;
 import com.dam.accesodatos.model.User;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
-import org.w3c.dom.Document;
-import org.xml.sax.helpers.DefaultHandler;
-
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
-import javax.xml.transform.OutputKeys;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * IMPLEMENTACIÓN PARA ESTUDIANTES - RA1: Gestión de Ficheros
- * 
+
  * Esta clase contiene esqueletos de métodos que los estudiantes deben completar
  * para demostrar su comprensión del RA1 y sus criterios de evaluación.
- * 
+
  * INSTRUCCIONES:
  * 1. Completar cada método marcado con TODO
  * 2. Usar solo las clases Java I/O indicadas en comentarios
  * 3. Implementar manejo robusto de excepciones
  * 4. Ejecutar tests para validar implementación
  * 5. Documentar decisiones técnicas en comentarios
- * 
+
  * PROHIBIDO:
  * - Usar librerías externas no permitidas
  * - Copiar código sin entender
@@ -89,11 +77,11 @@ public class FileUserServiceImpl implements FileUserService {
         String tipo = file.isFile() ? "archivo" : "directorio";
         
         // Paso 4: Obtener tamaño (solo para archivos)
-        String tamaño;
+        String tamano;
         if (file.isFile()) {
-            tamaño = file.length() + " bytes";
+            tamano = file.length() + " bytes";
         } else {
-            tamaño = "N/A (directorio)";
+            tamano = "N/A (directorio)";
         }
         
         // Paso 5: Obtener permisos
@@ -109,7 +97,7 @@ public class FileUserServiceImpl implements FileUserService {
         
         // Paso 7: Construir string con formato especificado
         return String.format("Tipo: %s, Tamaño: %s, Permisos: %s, Fecha: %s", 
-                           tipo, tamaño, permisos, fechaFormateada);
+                           tipo, tamano, permisos, fechaFormateada);
     }
 
     @Override
@@ -135,7 +123,52 @@ public class FileUserServiceImpl implements FileUserService {
          */
         
         // TODO: Implementar aquí
-        throw new UnsupportedOperationException("TODO: Implementar compareIOPerformance con medición de tiempo");
+        //1. Validar que el archivo existe
+        File file = new File(filePath);
+        if  (!file.exists()) {
+            return "El fichero no existe: " + filePath;
+        }
+
+        long fileReaderTime = 0;
+        long bufferedReaderTime = 0;
+
+        // 2. Primera prueba: leer con FileReader (sin buffer)
+        try (FileReader reader = new FileReader(file)) {
+            long startTime = System.currentTimeMillis();//inicio tiempo
+
+            while (reader.read() != -1) {
+                //lee cada linea hasta el final
+            }
+            long endTime = System.currentTimeMillis();//termina el tiempo cuando termina de leer cada linea
+            fileReaderTime = endTime - startTime;//calculo de tiempo sin buffer
+        } catch (IOException e) {
+            return "Error durante la lectura con FileReader: " + e.getMessage();
+        }
+
+        // 3. Segunda prueba: leer con BufferedReader (con buffer)
+        try (BufferedReader bufferedReader = new BufferedReader(new FileReader(file))) {
+            long startTime = System.currentTimeMillis();//inicio
+
+            while (bufferedReader.readLine() != null) {
+                // Lee línea por línea hasta el final del archivo (null)
+            }
+            long endTime = System.currentTimeMillis();//fin
+            bufferedReaderTime = endTime - startTime;//calculo
+        } catch (IOException e) {
+            return "Error durante la lectura con BufferedReader: " + e.getMessage();
+        }
+        // 4. Calcular la diferencia de tiempo
+        long diferencia = fileReaderTime - bufferedReaderTime;
+
+        // 5. Retornar comparación formateada con la diferencia
+        return String.format(
+                "FileReader: %dms\n" +
+                        "BufferedReader: %dms\n" +
+                        "Diferencia: %dms",
+                fileReaderTime,
+                bufferedReaderTime,
+                diferencia
+        );
     }
 
     @Override
@@ -163,7 +196,62 @@ public class FileUserServiceImpl implements FileUserService {
          */
         
         // TODO: Implementar aquí
-        throw new UnsupportedOperationException("TODO: Implementar compareNIOvsIO usando Files vs BufferedReader");
+        int lineCountIO = 0;
+        int lineCountNIO = 0;
+        long timeIO = 0;
+        long timeNIO = 0;
+        //1. Enfoque tradicional (java.io):
+        try{
+            long startTime = System.currentTimeMillis();//inicio IO
+            //   - Usar File para verificar existencia
+            File file = new File(filePath);
+            if (file.exists() && file.isFile()) {
+                //   - Usar BufferedReader para leer líneas
+                try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+                    while (reader.readLine() != null) {
+                        //   - Contar lineas manualmente
+                        lineCountIO++;
+                    }
+                }
+            } else {
+                return "Error con IO: El archivo no existe en la ruta especificada.";
+            }
+            timeIO = System.currentTimeMillis() - startTime;//fin timer IO y calculo
+        } catch (IOException e) {
+            return "Error durante la lectura con IO tradicional: " + e.getMessage();
+        }
+        //2. Enfoque NIO (java.nio.file):
+        try{
+            long startTime = System.currentTimeMillis();//inicio NIO
+            //   - Usar Path  y Files.exists() para verificar
+            Path path = Paths.get(filePath);
+            if (Files.exists(path) && Files.isRegularFile(path)) {
+                //   - Usar Files.readAllLines() para leer todo de una vez
+                List<String> allLines = Files.readAllLines(path);
+                //   - Obtener tamaño de lista directamente
+                lineCountNIO = allLines.size();
+            } else {
+                return "Error con NIO: El archivo no existe en la ruta especificada.";
+            }
+            timeNIO = System.currentTimeMillis() - startTime;//fin NIO y calculo
+        } catch (IOException e) {
+            return "Error durante la lectura con NIOvsIO: " + e.getMessage();
+        }
+
+        // 3. Comparar sintaxis y funcionalidades
+        final int codeLinesIO = 5;
+        final int codeLinesNIO = 4;
+        // 4. Medir tiempo de ejecucion de ambos
+        // 5. Retornar comparacion formateada
+        return String.format(
+                "IO Tradicional: %d líneas de código, %dms\n" +
+                        "NIO: %d líneas de código, %dms\n" +
+                        "NIO es más conciso y más eficiente.",
+                codeLinesIO,
+                timeIO,
+                codeLinesNIO,
+                timeNIO
+        );
     }
 
     // ========================================================================================
@@ -191,7 +279,41 @@ public class FileUserServiceImpl implements FileUserService {
          */
         
         // TODO: Implementar aquí
-        throw new UnsupportedOperationException("TODO: Implementar searchTextInFile usando BufferedReader");
+        // 1. Validar que archivo existe
+        File file = new File(filePath);
+        if (!file.exists()) {
+            return "El fichero no existe: " + filePath;
+        }
+        int lineaActual=0;
+        Map<Integer, String> busquedas = new HashMap<>();//LinkedHashMap a modo de diccionario de busquedas
+        // 2. Usar BufferedReader para leer línea por línea
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String linea;
+            while ((linea = reader.readLine())!= null) {
+                // 4. Llevar contador de línea actual
+                lineaActual++;
+                //3. Para cada línea: usar String.contains() o indexOf() para buscar
+                if(linea.contains(searchText)){
+                    //5. Acumular resultados: número de línea y contenido donde aparece
+                    busquedas.put(lineaActual, linea);
+                }
+            }
+            // 6. Contar total de ocurrencias
+            int cantOcurrencias = busquedas.size();
+            // 7. Retornar string formateado con resultados
+
+
+            StringBuilder sb = new StringBuilder();
+            for (Map.Entry<Integer, String> entry : busquedas.entrySet()) {
+                sb.append("Línea ").append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
+            }
+            sb.append("Total: ").append(cantOcurrencias).append("ocurrencias encontradas");
+            String resultado = sb.toString();
+            return resultado;
+        }catch (IOException e){
+            return "Error durante la lectura con FileReader: " + e.getMessage();
+        }
+
     }
 
     @Override
@@ -214,7 +336,36 @@ public class FileUserServiceImpl implements FileUserService {
          */
         
         // TODO: Implementar aquí
-        throw new UnsupportedOperationException("TODO: Implementar randomAccessRead usando RandomAccessFile");
+        // 1. Validar que archivo existe
+        File file = new File(filePath);
+        if (!file.exists()) {
+            return "El fichero no existe: " + filePath;
+        }
+        // 2. Crear RandomAccessFile en modo "r" (solo lectura)
+        try(RandomAccessFile raf = new RandomAccessFile(file, "r")){
+
+            //7. Manejar EOF si posición está fuera del archivo
+            if (position > raf.length()) {
+                return "Posición fuera del tamaño del archivo.";
+            }
+            // 3. Usar seek(position) para posicionar punter
+            raf.seek(position);//mover puntero al byte especificado
+            // 4. Crear buffer de bytes del tamaño especificado
+            byte[] buffer = new byte[length];
+            // 5. Usar read(buffer) para leer datos
+            int bytesRead = raf.read(buffer);
+            // 6. Convertir bytes a String
+            if (bytesRead > 0) {
+                return new String(buffer, 0, bytesRead);//converetir los bytes en una cadena usando la codificacion por defecto
+            } else {
+                return "Fin de archivo alcanzado o no se pudo leer.";
+            }
+
+        }catch (EOFException e) {
+            return "Posición fuera del tamaño del archivo (EOF alcanzado).";
+        }catch (IOException e) {
+            return "Error al convertir codificación: " + e.getMessage();
+        }
     }
 
     @Override
@@ -237,7 +388,36 @@ public class FileUserServiceImpl implements FileUserService {
          */
         
         // TODO: Implementar aquí
-        throw new UnsupportedOperationException("TODO: Implementar randomAccessWrite usando RandomAccessFile");
+        File file = new File(filePath);
+
+        // 1. Crear directorios padre si no existen
+        File dirPadre = file.getParentFile();
+        if(dirPadre != null && !dirPadre.exists()) {
+            dirPadre.mkdirs();
+        }
+        RandomAccessFile raf = null;
+        //2. Crear RandomAccessFile en modo "rw" (lectura/escritura)
+        try{
+            raf = new RandomAccessFile(file, "rw");
+            //3. Usar seek(position) para posicionar puntero
+            raf.seek(position);
+            //4. Convertir content a bytes con getBytes()
+            byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+            //5. Usar write(bytes) para escribir datos
+            raf.write(bytes);
+
+            // 7. Retornar true si exitoso
+            return true;
+        }catch (IOException e) {
+            System.out.println("Error al convertir codificación: " + e.getMessage());
+            return false;
+        }finally {//* 6. Cerrar archivo con close()
+            if(raf != null) {
+                try {
+                    raf.close();
+                } catch (IOException ignored) {}
+            }
+        }
     }
 
     @Override
@@ -261,7 +441,35 @@ public class FileUserServiceImpl implements FileUserService {
          */
         
         // TODO: Implementar aquí
-        throw new UnsupportedOperationException("TODO: Implementar convertFileEncoding usando InputStreamReader/OutputStreamWriter");
+        //1. Validar que archivo origen existe
+        File source = new File(sourceFile);
+        if (!source.exists()) {
+            System.out.println("El archivo origen no existe: " + sourceFile);
+            return false;
+        }
+        //6. Usar try-with-resources para cerrar recursos
+        try( //2. Crear InputStreamReader con FileInputStream y charset origen
+             InputStreamReader isr = new InputStreamReader(new FileInputStream(source), sourceCharset);
+             //3. Crear OutputStreamWriter con FileOutputStream y charset destino
+             OutputStreamWriter osw = new OutputStreamWriter(new FileOutputStream(targetFile), targetCharset);
+             //4. Envolver con BufferedReader/BufferedWriter para eficiencia
+             BufferedReader br = new BufferedReader(isr);
+             BufferedWriter bw = new BufferedWriter(osw)
+        ){
+            //5. Leer línea por línea y escribir con nueva codificación
+            String linea;
+            while((linea = br.readLine()) != null) {
+                bw.write(linea);
+                bw.newLine();
+            }
+            //.7. Retornar true si conversión exitosa
+            return true;
+
+        }catch(IOException e) {
+            System.out.println("Error al convertir la codificación: " + e.getMessage());
+            return false;
+        }
+
     }
 
     // ========================================================================================
@@ -287,7 +495,30 @@ public class FileUserServiceImpl implements FileUserService {
          */
         
         // TODO: Implementar aquí
-        throw new UnsupportedOperationException("TODO: Implementar listUserFiles usando Files.list()");
+        //1. Validar que directoryPath existe y es directorio
+        Path dirtPath = Paths.get(directoryPath);
+        if(!Files.exists(dirtPath) || !Files.isDirectory(dirtPath)) {
+            System.out.println("El archivo no existe: " + dirtPath);
+            return List.of();//Devuelve lista vacia
+        }
+        // 2. Usar Files.list() o File.listFiles()
+        try(Stream<Path> paths = Files.list(dirtPath)){//flujo de elementos tipo Path
+            //5. Retornar lista de nombres de archivo
+            return paths
+                    //3. Filtrar solo archivos (no directorios)
+                    .filter(Files::isRegularFile)
+                    //4. Filtrar por extensiones: .csv, .json, .xml
+                    .filter(path -> {
+                        String name = path.getFileName().toString().toLowerCase();
+                        return name.endsWith(".csv") || name.endsWith(".json") || name.endsWith(".xml");
+                    })
+                    .map(path -> path.getFileName().toString())
+                    .collect(Collectors.toList());
+
+        }catch(IOException e) {
+            System.out.println("Error al listar archivos: " + e.getMessage());
+            return List.of(); // Devuelve lista vacía en caso de error
+        }
     }
 
     @Override
@@ -310,8 +541,29 @@ public class FileUserServiceImpl implements FileUserService {
          */
         
         // TODO: Implementar aquí
-        throw new UnsupportedOperationException("TODO: Implementar validateDirectoryStructure usando Files API");
-        
+        // 1. Definir estructura esperada (ej: data/, exports/, temp/)
+        String[] subdirs = {"data", "exports", "temp"};
+
+        try{
+            //2. Para cada directorio: verificar si existe
+            for(String subdir: subdirs){
+                Path dirPath = Paths.get(basePath);
+                if(!Files.exists(dirPath)){
+                    Files.createDirectories(dirPath);//3. Crear directorios faltantes con Files.createDirectories()
+                }
+                //4. Verificar permisos de lectura/escritura
+                if(!Files.isDirectory(dirPath) || !Files.isReadable(dirPath) || !Files.isWritable(dirPath)){
+                    System.out.println("El archivo no existe: " + dirPath);
+                    return false;
+                }
+            }
+            //5. Retornar true si todo está correcto
+            return true;
+        }catch (IOException e){
+            System.out.println("Error al validar estructura de directorios: " + e.getMessage());
+            return false;
+        }
+
         // Estructura sugerida:
         // basePath/
         //   ├── data/       (archivos de datos)
@@ -340,7 +592,22 @@ public class FileUserServiceImpl implements FileUserService {
          */
         
         // TODO: Implementar aquí
-        throw new UnsupportedOperationException("TODO: Implementar createTempFile usando File.createTempFile()");
+        try{
+            //1. Usar File.createTempFile(prefix, ".tmp") para crear archivo temporal
+            File tempFile = File.createTempFile(prefix, ".temp");
+
+            //2.Obtener ruta absoluta con getAbsolutePath()
+            String absolutePath = tempFile.getAbsolutePath();
+            //3. Escribir contenido usando FileWriter
+            try(FileWriter writer = new FileWriter(tempFile)) {//4. Cerrar recursos correctamente
+                writer.write(content);
+            }
+            //5. Retornar ruta del archivo temporal creado
+            return absolutePath;
+
+        } catch (IOException e) {
+            return "Error al crear el archivo: " + e.getMessage();
+        }
     }
 
     @Override
