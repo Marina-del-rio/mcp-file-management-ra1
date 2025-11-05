@@ -6,7 +6,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.dam.accesodatos.ra1.FileUserService;
+import com.dam.accesodatos.model.User;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,7 +16,7 @@ import java.util.stream.Collectors;
 
 /**
  * Controlador REST que expone las herramientas MCP via HTTP.
- * 
+ *
  * Proporciona endpoints para que los LLMs puedan:
  * - Listar herramientas disponibles
  * - Ejecutar herramientas específicas
@@ -24,24 +26,24 @@ import java.util.stream.Collectors;
 @RequestMapping("/mcp")
 @CrossOrigin(origins = "*")
 public class McpServerController {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(McpServerController.class);
-    
+
     @Autowired
     private McpToolRegistry toolRegistry;
-    
+
     @Autowired
     private FileUserService fileUserService;
-    
+
     /**
      * Endpoint para listar todas las herramientas MCP disponibles
      */
     @GetMapping("/tools")
     public ResponseEntity<Map<String, Object>> getTools() {
         logger.debug("Solicitadas herramientas MCP disponibles");
-        
+
         List<McpToolRegistry.McpToolInfo> tools = toolRegistry.getRegisteredTools();
-        
+
         List<Map<String, String>> toolsList = tools.stream()
                 .map(tool -> {
                     Map<String, String> toolMap = new HashMap<>();
@@ -50,23 +52,23 @@ public class McpServerController {
                     return toolMap;
                 })
                 .collect(Collectors.toList());
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("tools", toolsList);
         response.put("count", toolsList.size());
         response.put("server", "MCP Server - RA1 Ficheros DAM");
         response.put("version", "1.0.0");
-        
+
         return ResponseEntity.ok(response);
     }
-    
+
     /**
      * Endpoint para obtener información del servidor MCP
      */
     @GetMapping("/info")
     public ResponseEntity<Map<String, Object>> getServerInfo() {
         logger.debug("Solicitada información del servidor MCP");
-        
+
         Map<String, Object> info = new HashMap<>();
         info.put("name", "MCP Server - RA1 Gestión de Ficheros DAM");
         info.put("version", "1.0.0");
@@ -74,10 +76,10 @@ public class McpServerController {
         info.put("protocol", "Model Context Protocol (MCP)");
         info.put("tools_count", toolRegistry.getRegisteredTools().size());
         info.put("supported_formats", List.of("CSV", "JSON", "XML"));
-        
+
         return ResponseEntity.ok(info);
     }
-    
+
     /**
      * Endpoint de health check
      */
@@ -86,10 +88,10 @@ public class McpServerController {
         Map<String, String> health = new HashMap<>();
         health.put("status", "UP");
         health.put("service", "MCP Server");
-        
+
         return ResponseEntity.ok(health);
     }
-    
+
     /**
      * Endpoint para obtener documentación de uso
      */
@@ -145,7 +147,7 @@ public class McpServerController {
 
         return ResponseEntity.ok(docs);
     }
-    
+
     /**
      * Endpoint de prueba para ejecutar getFileInfo (implementado por estudiante)
      */
@@ -247,9 +249,37 @@ public class McpServerController {
         }
 
         try {
-            // Convertir Map a User objects (simplificado - en producción usar ObjectMapper)
+            // Convertir Map a User objects
             List<com.dam.accesodatos.model.User> users = new java.util.ArrayList<>();
-            // Nota: Esta conversión requiere implementación completa en producción
+
+            for (Map<String, Object> userData : usersData) {
+                // Extraer datos del map
+                Long id = userData.get("id") != null ? ((Number) userData.get("id")).longValue() : null;
+                String name = (String) userData.get("name");
+                String email = (String) userData.get("email");
+                String department = (String) userData.get("department");
+                String role = (String) userData.get("role");
+
+                // Crear User con constructor apropiado
+                User user = new User(id, name, email, department, role);
+
+                // Setters solo para campos mutables opcionales
+                if (userData.get("active") != null) {
+                    user.setActive((Boolean) userData.get("active"));
+                }
+
+                if (userData.get("createdAt") != null) {
+                    String createdAtStr = (String) userData.get("createdAt");
+                    user.setCreatedAt(LocalDateTime.parse(createdAtStr));
+                }
+
+                if (userData.get("updatedAt") != null) {
+                    String updatedAtStr = (String) userData.get("updatedAt");
+                    user.setUpdatedAt(LocalDateTime.parse(updatedAtStr));
+                }
+
+                users.add(user);
+            }
 
             boolean success = fileUserService.writeUsersToCSV(users, filePath);
 
@@ -338,6 +368,35 @@ public class McpServerController {
 
         try {
             List<com.dam.accesodatos.model.User> users = new java.util.ArrayList<>();
+
+            for (Map<String, Object> userData : usersData) {
+                // Extraer datos del map
+                Long id = userData.get("id") != null ? ((Number) userData.get("id")).longValue() : null;
+                String name = (String) userData.get("name");
+                String email = (String) userData.get("email");
+                String department = (String) userData.get("department");
+                String role = (String) userData.get("role");
+
+                // Crear User con constructor apropiado
+                User user = new User(id, name, email, department, role);
+
+                // Setters solo para campos mutables opcionales
+                if (userData.get("active") != null) {
+                    user.setActive((Boolean) userData.get("active"));
+                }
+
+                if (userData.get("createdAt") != null) {
+                    String createdAtStr = (String) userData.get("createdAt");
+                    user.setCreatedAt(LocalDateTime.parse(createdAtStr));
+                }
+
+                if (userData.get("updatedAt") != null) {
+                    String updatedAtStr = (String) userData.get("updatedAt");
+                    user.setUpdatedAt(LocalDateTime.parse(updatedAtStr));
+                }
+
+                users.add(user);
+            }
 
             boolean success = fileUserService.writeUsersToJSON(users, filePath);
 
@@ -446,9 +505,11 @@ public class McpServerController {
     public ResponseEntity<Map<String, Object>> writeXML(@RequestBody Map<String, Object> request) {
         logger.debug("Escribiendo usuarios a XML");
 
+
         String filePath = (String) request.get("filePath");
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> usersData = (List<Map<String, Object>>) request.get("users");
+
 
         if (filePath == null || filePath.trim().isEmpty()) {
             Map<String, Object> error = new HashMap<>();
@@ -456,16 +517,50 @@ public class McpServerController {
             return ResponseEntity.badRequest().body(error);
         }
 
+
         if (usersData == null || usersData.isEmpty()) {
             Map<String, Object> error = new HashMap<>();
             error.put("error", "El parámetro 'users' es requerido y no puede estar vacío");
             return ResponseEntity.badRequest().body(error);
         }
 
+
         try {
+            // Convertir List<Map<String, Object>> a List<User>
             List<com.dam.accesodatos.model.User> users = new java.util.ArrayList<>();
 
+            for (Map<String, Object> userData : usersData) {
+                // Extraer datos del map
+                Long id = userData.get("id") != null ? ((Number) userData.get("id")).longValue() : null;
+                String name = (String) userData.get("name");
+                String email = (String) userData.get("email");
+                String department = (String) userData.get("department");
+                String role = (String) userData.get("role");
+
+                // Crear User con constructor apropiado
+                User user = new User(id, name, email, department, role);
+
+                // Setters solo para campos mutables opcionales
+                if (userData.get("active") != null) {
+                    user.setActive((Boolean) userData.get("active"));
+                }
+
+                if (userData.get("createdAt") != null) {
+                    String createdAtStr = (String) userData.get("createdAt");
+                    user.setCreatedAt(LocalDateTime.parse(createdAtStr));
+                }
+
+                if (userData.get("updatedAt") != null) {
+                    String updatedAtStr = (String) userData.get("updatedAt");
+                    user.setUpdatedAt(LocalDateTime.parse(updatedAtStr));
+                }
+
+                users.add(user);
+            }
+
+
             boolean success = fileUserService.writeUsersToXML(users, filePath);
+
 
             Map<String, Object> response = new HashMap<>();
             response.put("tool", "write_users_xml");
@@ -473,15 +568,18 @@ public class McpServerController {
             response.put("result", success);
             response.put("status", "success");
 
+
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error escribiendo XML: " + filePath, e);
+
 
             Map<String, Object> error = new HashMap<>();
             error.put("error", "Error escribiendo XML: " + e.getMessage());
             error.put("tool", "write_users_xml");
             error.put("input", filePath);
             error.put("status", "error");
+
 
             return ResponseEntity.status(500).body(error);
         }
@@ -696,9 +794,9 @@ public class McpServerController {
 
         String filePath = (String) request.get("filePath");
         Long position = request.get("position") != null ?
-            ((Number) request.get("position")).longValue() : null;
+                ((Number) request.get("position")).longValue() : null;
         Integer length = request.get("length") != null ?
-            ((Number) request.get("length")).intValue() : null;
+                ((Number) request.get("length")).intValue() : null;
 
         if (filePath == null || filePath.trim().isEmpty()) {
             Map<String, Object> error = new HashMap<>();
@@ -750,7 +848,7 @@ public class McpServerController {
 
         String filePath = (String) request.get("filePath");
         Long position = request.get("position") != null ?
-            ((Number) request.get("position")).longValue() : null;
+                ((Number) request.get("position")).longValue() : null;
         String content = (String) request.get("content");
 
         if (filePath == null || filePath.trim().isEmpty()) {
@@ -834,15 +932,15 @@ public class McpServerController {
 
         try {
             boolean result = fileUserService.convertFileEncoding(sourceFile, targetFile,
-                                                                 sourceCharset, targetCharset);
+                    sourceCharset, targetCharset);
 
             Map<String, Object> response = new HashMap<>();
             response.put("tool", "convert_file_encoding");
             response.put("input", Map.of(
-                "sourceFile", sourceFile,
-                "targetFile", targetFile,
-                "sourceCharset", sourceCharset,
-                "targetCharset", targetCharset
+                    "sourceFile", sourceFile,
+                    "targetFile", targetFile,
+                    "sourceCharset", sourceCharset,
+                    "targetCharset", targetCharset
             ));
             response.put("result", result);
             response.put("status", "success");

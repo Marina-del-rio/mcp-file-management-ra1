@@ -1,12 +1,31 @@
 package com.dam.accesodatos.ra1;
 
 import com.dam.accesodatos.model.User;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.exc.StreamReadException;
+import com.fasterxml.jackson.core.exc.StreamWriteException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DatabindException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import org.springframework.stereotype.Service;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.Attributes;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
+
+import javax.xml.parsers.*;
+import javax.xml.transform.*;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -334,7 +353,7 @@ public class FileUserServiceImpl implements FileUserService {
          * - RandomAccessFile (constructor con modo "r", seek, read)
          * - String constructor para convertir bytes
          */
-        
+        // TODO: Porque este tipo de lectura
         // TODO: Implementar aquí
         // 1. Validar que archivo existe
         File file = new File(filePath);
@@ -360,7 +379,7 @@ public class FileUserServiceImpl implements FileUserService {
             } else {
                 return "Fin de archivo alcanzado o no se pudo leer.";
             }
-
+//TODO: que es EOF
         }catch (EOFException e) {
             return "Posición fuera del tamaño del archivo (EOF alcanzado).";
         }catch (IOException e) {
@@ -386,19 +405,17 @@ public class FileUserServiceImpl implements FileUserService {
          * - RandomAccessFile (constructor con modo "rw", seek, write)
          * - String.getBytes() para obtener bytes
          */
-        
+
         // TODO: Implementar aquí
         File file = new File(filePath);
-
         // 1. Crear directorios padre si no existen
         File dirPadre = file.getParentFile();
         if(dirPadre != null && !dirPadre.exists()) {
             dirPadre.mkdirs();
         }
-        RandomAccessFile raf = null;
+
         //2. Crear RandomAccessFile en modo "rw" (lectura/escritura)
-        try{
-            raf = new RandomAccessFile(file, "rw");
+        try(RandomAccessFile raf = new RandomAccessFile(file, "rw")){
             //3. Usar seek(position) para posicionar puntero
             raf.seek(position);
             //4. Convertir content a bytes con getBytes()
@@ -411,13 +428,8 @@ public class FileUserServiceImpl implements FileUserService {
         }catch (IOException e) {
             System.out.println("Error al convertir codificación: " + e.getMessage());
             return false;
-        }finally {//* 6. Cerrar archivo con close()
-            if(raf != null) {
-                try {
-                    raf.close();
-                } catch (IOException ignored) {}
-            }
         }
+
     }
 
     @Override
@@ -547,13 +559,24 @@ public class FileUserServiceImpl implements FileUserService {
         try{
             //2. Para cada directorio: verificar si existe
             for(String subdir: subdirs){
-                Path dirPath = Paths.get(basePath);
-                if(!Files.exists(dirPath)){
-                    Files.createDirectories(dirPath);//3. Crear directorios faltantes con Files.createDirectories()
+                Path dirPath = Paths.get(basePath, subdir);
+
+                //3. Crear directorios faltantes con Files.createDirectories()
+                Files.createDirectories(dirPath);
+
+
+                if(!Files.isDirectory(dirPath)){
+                    System.out.println("La ruta especificada no es un directorio " + dirPath);
+                    return false;
                 }
+
                 //4. Verificar permisos de lectura/escritura
-                if(!Files.isDirectory(dirPath) || !Files.isReadable(dirPath) || !Files.isWritable(dirPath)){
-                    System.out.println("El archivo no existe: " + dirPath);
+                if(!Files.isReadable(dirPath)){
+                    System.out.println("La ruta especificada no tiene permisos de lectura" + dirPath);
+                    return false;
+                }
+                if(!Files.isWritable(dirPath)){
+                    System.out.println("La ruta especificada no tiene permisos de escritura " + dirPath);
                     return false;
                 }
             }
@@ -594,7 +617,7 @@ public class FileUserServiceImpl implements FileUserService {
         // TODO: Implementar aquí
         try{
             //1. Usar File.createTempFile(prefix, ".tmp") para crear archivo temporal
-            File tempFile = File.createTempFile(prefix, ".temp");
+            File tempFile = File.createTempFile(prefix, ".tmp");
 
             //2.Obtener ruta absoluta con getAbsolutePath()
             String absolutePath = tempFile.getAbsolutePath();
@@ -634,7 +657,71 @@ public class FileUserServiceImpl implements FileUserService {
          */
         
         // TODO: Implementar aquí
-        throw new UnsupportedOperationException("TODO: Implementar formatTextFile basado en ejemplo ArreglarFichero de la presentación vista en clase");
+        //1. Validar que archivo origen existe
+        File file = new File(sourceFile);
+        if(!file.exists()) {
+            System.out.println("El archivo no existe");
+        }
+        //3. Leer archivo línea por línea con BufferedReader
+        try(BufferedReader br = new BufferedReader(new FileReader(sourceFile))) {
+            //2. Crear archivo temporal para resultado
+            File tempResult = File.createTempFile("Result", ".tmp");
+
+            try(BufferedWriter bw = new BufferedWriter(new FileWriter(tempResult))) {
+                String linea;
+                while((linea = br.readLine()) != null) {
+                    boolean princLinea = true;
+                    boolean espacios = false;
+                    boolean primerLetra = false;
+
+                    StringBuilder nuevaLinea = new StringBuilder();
+                    //4. Para cada línea, procesar carácter por carácter:
+                    for(int i = 0; i < linea.length(); i++) {
+                        char c = linea.charAt(i);
+                        //- Eliminar espacios al principio de línea (princLinea flag)
+
+                        //- Sustituir múltiples espacios consecutivos por uno solo (espacios flag)
+
+                        //- Convertir primera letra de línea a mayúscula (primerLetra flag)
+
+                        //- Mantener otros caracteres como están
+                        if(princLinea) {
+                            if(!Character.isWhitespace(c)) {
+                                princLinea = false;
+
+                                if(Character.isLetter(c) && !primerLetra) {
+                                    nuevaLinea.append(Character.toUpperCase(c));
+                                    primerLetra = true;
+                                }else{
+                                    nuevaLinea.append(c);
+                                    primerLetra = true;
+                                }
+                            }
+                        }else{
+                            if(!Character.isWhitespace(c)) {
+                                nuevaLinea.append(c);
+                                espacios = false;
+
+                            }else{
+                                if(!espacios) {
+                                    nuevaLinea.append(' ');
+                                    espacios = true;
+                                }
+                            }
+                        }
+                    }
+                    //5. Escribir línea procesada a archivo temporal
+                    bw.write(nuevaLinea.toString());
+                    bw.newLine();
+                }
+            }
+            //6. Retornar ruta del archivo temporal
+            return tempResult.getAbsolutePath();
+
+        }catch(IOException e) {
+            System.out.println("Error al crear el archivo Result" + e.getMessage());
+            return null;
+        }
     }
 
     // ========================================================================================
@@ -663,8 +750,55 @@ public class FileUserServiceImpl implements FileUserService {
         List<User> users = new ArrayList<>();
         
         // TODO: Implementar aquí
-        throw new UnsupportedOperationException("TODO: Implementar readUsersFromXML usando DOM parser");
-        
+        //1. Crear DocumentBuilderFactory y DocumentBuilder
+        try{
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+
+            //2. Usar DocumentBuilder.parse() para obtener Document
+            Document doc = builder.parse(new File(filePath));
+
+            //3. Obtener todos los elementos "user" con getElementsByTagName()
+            NodeList nodeList = doc.getElementsByTagName("user");
+
+            for(int i = 0; i < nodeList.getLength(); i++) {
+                Node userNode = nodeList.item(i);
+
+                if(userNode.getNodeType() == Node.ELEMENT_NODE) {
+                    Element userElement = (Element) userNode;
+
+                    //4. Para cada elemento user: extraer texto de cada campo
+                    String idStr = userElement.getElementsByTagName("id").item(0).getTextContent();
+                    String name = userElement.getElementsByTagName("name").item(0).getTextContent();
+                    String email = userElement.getElementsByTagName("email").item(0).getTextContent();
+                    String department = userElement.getElementsByTagName("department").item(0).getTextContent();
+                    String role =  userElement.getElementsByTagName("role").item(0).getTextContent();
+                    String activeStr = userElement.getElementsByTagName("active").item(0).getTextContent();
+                    String createdAtStr = userElement.getElementsByTagName("createdAt").item(0).getTextContent();
+                    String updatedAtStr = userElement.getElementsByTagName("updatedAt").item(0).getTextContent();
+
+                    //5. Convertir texto a tipos apropiados (Long, Boolean, LocalDateTime)
+                    Long id = Long.parseLong(idStr);
+                    boolean active = Boolean.parseBoolean(activeStr);
+                    LocalDateTime createdAt = LocalDateTime.parse(createdAtStr);
+                    LocalDateTime updatedAt = LocalDateTime.parse(updatedAtStr);
+                    //Se podría parsear al extraer los elementos
+
+                    //6. Crear objeto User con los datos extraídos
+                    User user = new User(id, name, email, department, role);
+                    user.setActive(active);
+                    user.setCreatedAt(createdAt);
+                    user.setUpdatedAt(updatedAt);
+
+                    users.add(user);
+                }
+            }
+        } catch (ParserConfigurationException | SAXException | IOException e) {
+            e.printStackTrace();
+        }
+        return users;
+
+
         // ESTRUCTURA XML esperada:
         // <users>
         //   <user>
@@ -694,9 +828,80 @@ public class FileUserServiceImpl implements FileUserService {
          * - TransformerFactory, Transformer
          * - DOMSource, StreamResult
          */
-        
+        //ESTA MAL
         // TODO: Implementar aquí
-        throw new UnsupportedOperationException("TODO: Implementar writeUsersToXML usando DOM y Transformer");
+        try{
+            //1. Crear DocumentBuilderFactory y DocumentBuilder
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+
+            //2. Crear nuevo Document con createElement()
+            Document doc = builder.newDocument();
+            Element rootElement = doc.createElement("users");
+
+            //3. Crear elemento raíz "users"
+            doc.appendChild(rootElement);
+
+            //4. Para cada User: crear elemento "user" con subelementos
+            for (User user : users) {
+                Element userElement = doc.createElement("user");
+                rootElement.appendChild(userElement);
+
+                Element idElement = doc.createElement("id");
+                idElement.setTextContent(String.valueOf(user.getId()));
+                userElement.appendChild(idElement);
+
+                Element nameElement = doc.createElement("name");
+                nameElement.setTextContent(user.getName());
+                userElement.appendChild(nameElement);
+
+                Element emailElement = doc.createElement("email");
+                emailElement.setTextContent(user.getEmail());
+                userElement.appendChild(emailElement);
+
+                Element departmentElement = doc.createElement("department");
+                departmentElement.setTextContent(user.getDepartment());
+                userElement.appendChild(departmentElement);
+
+                Element roleElement = doc.createElement("role");
+                roleElement.setTextContent(user.getRole());
+                userElement.appendChild(roleElement);
+
+                Element activeElement = doc.createElement("active");
+                activeElement.setTextContent(String.valueOf(user.getActive()));
+                userElement.appendChild(activeElement);
+
+                Element createdAtElement = doc.createElement("createdAt");
+                createdAtElement.setTextContent(user.getCreatedAt().toString());
+                userElement.appendChild(createdAtElement);
+
+                Element updatedAtElement = doc.createElement("updatedAt");
+                updatedAtElement.setTextContent(user.getUpdatedAt().toString());
+                userElement.appendChild(updatedAtElement);
+
+            }
+
+            //5. Usar Transformer para escribir Document a archivo
+            TransformerFactory transformerFactory = TransformerFactory.newInstance();
+            Transformer transformer = transformerFactory.newTransformer();
+
+            //6. Configurar Transformer para pretty-print (setOutputProperty)
+            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+            transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "4");
+            transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+            transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "no");
+            transformer.setOutputProperty(OutputKeys.STANDALONE, "yes");
+
+            DOMSource source = new DOMSource(doc);
+            StreamResult result = new StreamResult(new File(filePath));
+            transformer.transform(source, result);
+
+            return true;
+
+        } catch (ParserConfigurationException | TransformerException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     @Override
@@ -722,15 +927,95 @@ public class FileUserServiceImpl implements FileUserService {
         List<User> users = new ArrayList<>();
         
         // TODO: Implementar aquí
-        throw new UnsupportedOperationException("TODO: Implementar readUsersFromXMLSAX usando SAX parser");
-        
+        try {
+            // 1. Crear SAXParserFactory y SAXParser
+            SAXParserFactory factory = SAXParserFactory.newInstance();
+            SAXParser saxParser = factory.newSAXParser();
+
+            // 2. Implementar DefaultHandler personalizado:
+            //         *    - startElement(): detectar inicio de elementos
+            //         *    - characters(): capturar contenido de texto
+            //         *    - endElement(): procesar fin de elementos
+            UserSAXHandler handler = new UserSAXHandler();
+
+            // 4. Usar SAXParser.parse() con el handler
+            saxParser.parse(new File(filePath), handler);
+
+            users = handler.getUsers();
+
+        } catch (ParserConfigurationException | SAXException | IOException e) {
+            e.printStackTrace();
+        }
+
+        return users;
+    }
+
         // PISTA: Crear clase que extienda DefaultHandler
         /*
         class UserSAXHandler extends DefaultHandler {
             // TODO: Implementar startElement, characters, endElement
         }
         */
+    //2. Implementar DefaultHandler personalizado:
+        //         *    - startElement(): detectar inicio de elementos
+        //         *    - characters(): capturar contenido de texto
+        //         *    - endElement(): procesar fin de elementos
+    private static class UserSAXHandler extends DefaultHandler {
+
+            // 3. Mantener estado durante parsing
+            private List<User> users;
+            private User currentUser;
+            private StringBuilder elementValue;
+
+            // Metodo código exterior pueda obtener el resultado
+            public List<User> getUsers() {
+                return users;
+            }
+
+            @Override
+            public void startDocument() {
+                users = new ArrayList<>();
+                elementValue = new StringBuilder();
+            }
+
+            @Override
+            public void startElement(String uri, String localName, String qName, Attributes attributes) {
+                elementValue.setLength(0); // Limpiamos el buffer para el nuevo elemento
+
+                if (qName.equalsIgnoreCase("user")) {
+                    currentUser = new User();
+                }
+            }
+
+            // Se llama al encontrar texto entre etiquetas
+            @Override
+            public void characters(char[] ch, int start, int length) {
+                elementValue.append(ch, start, length);
+            }
+
+            // Se llama al encontrar una etiqueta de cierre </...>
+            @Override
+            public void endElement(String uri, String localName, String qName) {
+                if (currentUser != null) {
+                    String value = elementValue.toString().trim();
+
+                    // Usando el estilo de switch que tenías
+                    switch (qName.toLowerCase()) {
+                        case "id" -> currentUser.setId(Long.parseLong(value));
+                        case "name" -> currentUser.setName(value);
+                        case "email" -> currentUser.setEmail(value);
+                        case "department" -> currentUser.setDepartment(value);
+                        case "role" -> currentUser.setRole(value);
+                        case "active" -> currentUser.setActive(Boolean.parseBoolean(value));
+                        case "createdat" -> currentUser.setCreatedAt(LocalDateTime.parse(value));
+                        case "updatedat" -> currentUser.setUpdatedAt(LocalDateTime.parse(value));
+                        case "user" -> users.add(currentUser);
+
+                    }
+                }
+            }
     }
+
 
     // ========================================================================================
     // CE1.e: ESCRITURA Y LECTURA DE INFORMACIÓN EN FORMATO JSON
@@ -754,8 +1039,36 @@ public class FileUserServiceImpl implements FileUserService {
          */
         
         // TODO: Implementar aquí
-        throw new UnsupportedOperationException("TODO: Implementar readUsersFromJSON usando Jackson ObjectMapper");
-        
+
+        List<User> users = new ArrayList<>();
+
+        try{
+        //1. Validar que archivo existe
+            File file = new File(filePath);
+            if (!file.exists()) {
+                System.out.println("El archivo no existe");
+                return new ArrayList<>();
+            }
+            //4. Retornar lista vacía si archivo está vacío
+            if(file.length() == 0){
+                return users;
+            }
+            //2. Usar ObjectMapper.readValue() con TypeReference para List<User>
+
+            users = objectMapper.readValue(file, new TypeReference<List<User>>() {});
+
+            // 3. Manejar excepciones de Jackson apropiadamente
+        } catch (JsonProcessingException e) {
+            System.err.println("Error de E/S al leer el archivo JSON: " + filePath);
+            return new ArrayList<>();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return users;
+
+
         // PISTA: objectMapper.readValue(new File(filePath), new TypeReference<List<User>>() {});
     }
 
@@ -772,7 +1085,30 @@ public class FileUserServiceImpl implements FileUserService {
          */
         
         // TODO: Implementar aquí
-        throw new UnsupportedOperationException("TODO: Implementar writeUsersToJSON usando Jackson ObjectMapper");
+        try{
+            //1. Crear directorios padre si no existen
+            File file = new File(filePath);
+            File parentDir = file.getParentFile();
+
+            if (!parentDir.exists() && parentDir != null) {
+                parentDir.mkdirs();
+            }
+            //2. Configurar ObjectMapper para pretty-print
+            ObjectWriter writer = objectMapper.writerWithDefaultPrettyPrinter();
+
+            //3. Usar ObjectMapper.writeValue() para escribir a archivo
+            writer.writeValue(file, users);
+
+            return true;
+            //4. Manejar excepciones apropiadamente
+        } catch (JsonProcessingException e) {
+            System.err.println("Error de E/S al escribir el archivo JSON: " + filePath);
+            return false;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+
     }
 
     // ========================================================================================
@@ -804,8 +1140,43 @@ public class FileUserServiceImpl implements FileUserService {
         List<User> users = new ArrayList<>();
         
         // TODO: Implementar aquí
-        throw new UnsupportedOperationException("TODO: Implementar readUsersFromCSV usando BufferedReader");
-        
+        //1. Validar que el archivo existe usando Files.exists()
+        File file = new File(filePath);
+        if(!file.exists()){
+            System.out.println("El archivo no existe");
+            return new ArrayList<>();
+        }
+        //2. Usar BufferedReader con FileReader para leer líneas
+        //7. Usar try-with-resources para garantizar cierre de recursos
+        try(BufferedReader reader = new BufferedReader(new FileReader(file))){
+            //3. Saltear la primera línea (cabeceras)
+            String line = reader.readLine();
+            while((line = reader.readLine()) != null){
+                //4. Para cada línea: usar String.split(",") para separar campos
+                String[] fields = line.split(",");
+                //5. Convertir cada línea a objeto User
+                Long id = Long.parseLong(fields[0].trim());
+                String name = fields[1].trim();
+                String email = fields[2].trim();
+                String department = fields[3].trim();
+                String role = fields[4].trim();
+                //6. Manejar parsing de LocalDateTime desde String
+                boolean active = Boolean.parseBoolean(fields[5].trim());
+                LocalDateTime createdAt = LocalDateTime.parse(fields[6].trim());
+                LocalDateTime updatedAt = LocalDateTime.parse(fields[7].trim());
+
+
+                User user = new User(id, name, email, department, role);
+                user.setActive(active);
+                user.setCreatedAt(createdAt);
+                user.setUpdatedAt(updatedAt);
+
+                users.add(user);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Error leyendo el CSV: " + e.getMessage());
+        }
+        return users;
         // EJEMPLO de estructura esperada:
         // try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
         //     String line = reader.readLine(); // Saltear cabeceras
@@ -839,7 +1210,48 @@ public class FileUserServiceImpl implements FileUserService {
          */
         
         // TODO: Implementar aquí
-        throw new UnsupportedOperationException("TODO: Implementar writeUsersToCSV usando PrintWriter");
+        //1. Crear directorios padre si no existen usando Files.createDirectories()
+        File file = new File(filePath);
+        File parentDir = file.getParentFile();
+
+        try {
+            if (parentDir != null && !parentDir.exists()) {
+                Files.createDirectories(parentDir.toPath());
+            }
+
+            //2. Usar PrintWriter con FileWriter para escribir
+            //6. Usar try-with-resources
+            try(PrintWriter writer = new PrintWriter(new FileWriter(file))){
+                //3. Escribir línea de cabeceras CSV
+                writer.println("id,name,email,department,role,active,createdAt,updatedAt");
+                //5. Manejar formato de LocalDateTime a String
+                DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+                //4. Para cada User: formatear campos separados por comas
+                for (User user : users) {
+                    String createdAtStr = user.getCreatedAt() != null ? user.getCreatedAt().format(formatter) : "";
+                    String updatedAtStr = user.getUpdatedAt() != null ? user.getUpdatedAt().format(formatter) : "";
+
+                    String line = String.join(",",
+                            String.valueOf(user.getId()),
+                            user.getName(),
+                            user.getEmail(),
+                            user.getDepartment(),
+                            user.getRole(),
+                            String.valueOf(user.getActive()),
+                            createdAtStr,
+                            updatedAtStr
+                    );
+
+                    writer.println(line);
+                }
+                return true;
+            }catch (IOException e){
+                throw new RuntimeException("Error al escribir el archivo CSV: " + e.getMessage(), e);
+            }
+    } catch (IOException e) {
+        throw new RuntimeException("Error al crear directorios: " + e.getMessage(), e);
+    }
+
     }
 
 

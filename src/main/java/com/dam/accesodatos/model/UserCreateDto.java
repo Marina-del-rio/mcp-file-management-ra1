@@ -7,18 +7,18 @@ import jakarta.validation.constraints.*;
  * Usado en herramientas MCP para validar entrada de datos
  */
 public class UserCreateDto {
-    
+
     @NotBlank(message = "El nombre es obligatorio")
     @Size(min = 2, max = 50, message = "El nombre debe tener entre 2 y 50 caracteres")
     private String name;
-    
+
     @NotBlank(message = "El email es obligatorio")
     @Email(message = "El email debe tener un formato válido")
     private String email;
-    
+
     @NotBlank(message = "El departamento es obligatorio")
     private String department;
-    
+
     @NotBlank(message = "El rol es obligatorio")
     private String role;
 

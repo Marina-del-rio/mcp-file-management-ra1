@@ -6,42 +6,51 @@ import java.util.Objects;
 
 /**
  * Modelo de datos User para RA1: Gestión de Ficheros
- * 
+ *
  * POJO vanilla Java que se puede serializar/deserializar en:
  * - CSV: campos separados por comas
  * - JSON: usando Jackson ObjectMapper
  * - XML: usando JAXB o parsing manual DOM/SAX
- * 
+ *
  * Los estudiantes deben usar este modelo en sus implementaciones de FileUserService
  */
 public class User {
-    
+
     private Long id;
-    
+
     @NotBlank(message = "El nombre es obligatorio")
     @Size(min = 2, max = 50, message = "El nombre debe tener entre 2 y 50 caracteres")
     private String name;
-    
+
     @NotBlank(message = "El email es obligatorio")
     @Email(message = "El email debe tener un formato válido")
     private String email;
-    
+
     @NotBlank(message = "El departamento es obligatorio")
     private String department;
-    
+
     @NotBlank(message = "El rol es obligatorio")
     private String role;
-    
+
     private Boolean active;
-    
+
     private LocalDateTime createdAt;
-    
+
     private LocalDateTime updatedAt;
 
     public User() {
         this.active = true;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public User(Long id, String name, String email, String department, String role) {
+        this();
+        this.id = id;
+        this.name = name;
+        this.email = email;
+        this.department = department;
+        this.role = role;
     }
 
     public User(String name, String email, String department, String role) {
@@ -55,7 +64,6 @@ public class User {
     public Long getId() {
         return id;
     }
-
     public void setId(Long id) {
         this.id = id;
     }
@@ -126,8 +134,8 @@ public class User {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         User user = (User) o;
-        return Objects.equals(id, user.id) && 
-               Objects.equals(email, user.email);
+        return Objects.equals(id, user.id) &&
+                Objects.equals(email, user.email);
     }
 
     @Override

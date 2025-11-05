@@ -5,7 +5,7 @@ package com.dam.accesodatos.model;
  * Usado en herramientas MCP para búsquedas parametrizadas
  */
 public class UserQueryDto {
-    
+
     private String department;
     private String role;
     private Boolean active;
